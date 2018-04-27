@@ -29,10 +29,10 @@ const (
 // Provider holds for configuration for the provider
 type Provider struct {
 	provider.BaseProvider `mapstructure:",squash"`
-	ClusterManagementURL  string           `description:"Service Fabric API endpoint"`
-	APIVersion            string           `description:"Service Fabric API version" export:"true"`
-	RefreshSeconds        int              `description:"Polling interval (in seconds)" export:"true"`
-	TLS                   *types.ClientTLS `description:"Enable TLS support" export:"true"`
+	ClusterManagementURL  string       `description:"Service Fabric API endpoint"`
+	APIVersion            string       `description:"Service Fabric API version" export:"true"`
+	RefreshSeconds        int          `description:"Polling interval (in seconds)" export:"true"`
+	TLS                   *ClientTLSSF `description:"Enable TLS support" export:"true"`
 }
 
 // Provide allows the ServiceFabric provider to provide configurations to traefik
@@ -42,7 +42,7 @@ func (p *Provider) Provide(configurationChan chan<- types.ConfigMessage, pool *s
 		p.APIVersion = sf.DefaultAPIVersion
 	}
 
-	tlsConfig, err := p.TLS.CreateTLSConfig()
+	tlsConfig, err := p.TLS.CreateTLSConfigFromSF()
 	if err != nil {
 		return err
 	}
