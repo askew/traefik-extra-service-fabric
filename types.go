@@ -88,9 +88,18 @@ func (clientTLS *ClientTLSSF) CreateTLSConfigFromSF() (*tls.Config, error) {
 
 				// Get the PFX password from the matching env variable
 				pfxPwdVar := strings.Replace(variable[0], "_PFX", "_Password", 1)
-				pfxPwd := os.Getenv(pfxPwdVar)
+				pfxPwdFile := os.Getenv(pfxPwdVar)
+				_, err = os.Stat(pfxPwdFile)
+				if err != nil {
+					return nil, fmt.Errorf("The certificate password file does not exist. %s", err)
+				}
 
-				blocks, err := pkcs12.ToPEM(pfxData, pfxPwd)
+				pfxPwd, err := ioutil.ReadFile(pfxPwdFile)
+				if err != nil {
+					return nil, fmt.Errorf("Error reading the certificate password file. %s", err)
+				}
+
+				blocks, err := pkcs12.ToPEM(pfxData, string(pfxPwd))
 				if err != nil {
 					return nil, fmt.Errorf("Error converting the certificate file. %s", err)
 				}
