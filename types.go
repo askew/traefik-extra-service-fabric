@@ -1,12 +1,15 @@
 package servicefabric
 
 import (
+	"bytes"
 	"crypto/tls"
 	"encoding/pem"
 	"fmt"
 	"io/ioutil"
 	"os"
 	"strings"
+	"unicode/utf16"
+	"unicode/utf8"
 
 	"github.com/containous/traefik/log"
 	"github.com/containous/traefik/types"
@@ -94,14 +97,16 @@ func (clientTLS *ClientTLSSF) CreateTLSConfigFromSF() (*tls.Config, error) {
 					return nil, fmt.Errorf("The certificate password file does not exist. %s", err)
 				}
 
-				pfxPwd, err := ioutil.ReadFile(pfxPwdFile)
+				pfxPwdBytes, err := ioutil.ReadFile(pfxPwdFile)
 				if err != nil {
 					return nil, fmt.Errorf("Error reading the certificate password file. %s", err)
 				}
 
-				blocks, err := pkcs12.ToPEM(pfxData, string(pfxPwd))
+				pfxPwd, err := DecodeUTF16(pfxPwdBytes)
+
+				blocks, err := pkcs12.ToPEM(pfxData, pfxPwd)
 				if err != nil {
-					return nil, fmt.Errorf("Error converting the certificate file. %s", err)
+					return nil, fmt.Errorf("Error converting the certificate file (length is %d). Password is %s. %s", len(pfxData), pfxPwd, err)
 				}
 
 				var pemData []byte
@@ -127,4 +132,26 @@ func (clientTLS *ClientTLSSF) CreateTLSConfigFromSF() (*tls.Config, error) {
 	}
 	tlsConfig, err := clientTLS.CreateTLSConfig()
 	return tlsConfig, err
+}
+
+// DecodeUTF16 converts a uft16 byte array to a string.
+func DecodeUTF16(b []byte) (string, error) {
+
+	if len(b)%2 != 0 {
+		return "", fmt.Errorf("Must have even length byte slice")
+	}
+
+	u16s := make([]uint16, 1)
+	ret := &bytes.Buffer{}
+	b8buf := make([]byte, 4)
+	lb := len(b)
+
+	for i := 0; i < lb; i += 2 {
+		u16s[0] = uint16(b[i]) + (uint16(b[i+1]) << 8)
+		r := utf16.Decode(u16s)
+		n := utf8.EncodeRune(b8buf, r[0])
+		ret.Write(b8buf[:n])
+	}
+
+	return ret.String(), nil
 }
